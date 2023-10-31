@@ -6,7 +6,7 @@ import pygame
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QAction, \
-    QMessageBox
+    QMessageBox, QLabel, QLineEdit
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
@@ -23,7 +23,6 @@ def show_message(title, message):
     msg_box.setWindowTitle(title)
     msg_box.setText(message)
     msg_box.exec_()
-
 
 class SoundPlayer(QMainWindow):
     """
@@ -69,7 +68,7 @@ class SoundPlayer(QMainWindow):
         self.setGeometry(100, 100, 800, 600)
 
         # Set the application icon
-        icon = QIcon("corgi.png")  # Replace with the path to your icon
+        icon = QIcon("corgi.png")
         self.setWindowIcon(icon)
 
         # Create a menu
@@ -88,11 +87,30 @@ class SoundPlayer(QMainWindow):
         self.canvas.setParent(self)
         self.canvas.setVisible(False)
 
+        #create button that leads to the window for trimming
+
+
         # Create buttons
         self.play_button = QPushButton("Play")
         self.toggle_button = QPushButton("Pause/Resume")
         self.stop_button = QPushButton("Stop")
         self.reverse_button = QPushButton("Play in Reverse")
+
+        # Create a label and input field for specifying loudness factor
+        self.volume_label = QLabel("Loudness Factor:")
+        self.volume_input = QLineEdit()
+        self.volume_submit_button = QPushButton("Submit volume factor and play with volume changed")
+        self.volume_submit_button.clicked.connect(lambda: self.change_volume(self.volume_input.text()))
+
+        self.tempo_label = QLabel("Tempo Factor:")
+        self.tempo_input = QLineEdit()
+        self.tempo_submit_button = QPushButton("Submit tempo factor and play with tempo changed")
+        self.tempo_submit_button.clicked.connect(lambda: self.change_tempo(self.tempo_input.text()))
+
+        self.noise_label = QLabel("Noise Cutoff Frequency:")
+        self.noise_input = QLineEdit()
+        self.noise_submit_button = QPushButton("Submit noise cutoff strength (from 0 to 1). and play with noise filter")
+        self.noise_submit_button.clicked.connect(lambda: self.noise_filter(self.noise_input.text()))
 
         # Add buttons to the layout
         layout = QVBoxLayout()
@@ -101,6 +119,18 @@ class SoundPlayer(QMainWindow):
         layout.addWidget(self.toggle_button)
         layout.addWidget(self.stop_button)
         layout.addWidget(self.reverse_button)
+
+        layout.addWidget(self.tempo_label)
+        layout.addWidget(self.tempo_input)
+        layout.addWidget(self.tempo_submit_button)
+
+        layout.addWidget(self.volume_label)
+        layout.addWidget(self.volume_input)
+        layout.addWidget(self.volume_submit_button)
+
+        layout.addWidget(self.noise_label)
+        layout.addWidget(self.noise_input)
+        layout.addWidget(self.noise_submit_button)
 
         central_widget = QWidget()
         central_widget.setLayout(layout)
@@ -123,6 +153,10 @@ class SoundPlayer(QMainWindow):
         self.stop_button.setEnabled(False)
         self.reverse_button.setEnabled(False)
 
+        self.volume_submit_button.setEnabled(False)
+        self.tempo_submit_button.setEnabled(False)
+        self.noise_submit_button.setEnabled(False)
+
     def open_audio_file(self):
         """
         Open a file dialog to choose an audio file for playback.
@@ -139,6 +173,9 @@ class SoundPlayer(QMainWindow):
             self.stop_button.setEnabled(True)
             self.reverse_button.setEnabled(True)
 
+            self.volume_submit_button.setEnabled(True)
+            self.tempo_submit_button.setEnabled(True)
+            self.noise_submit_button.setEnabled(True)
 
     def load_audio_file(self):
         """
@@ -254,23 +291,195 @@ class SoundPlayer(QMainWindow):
                 print("Resuming reverse playback")
                 pygame.mixer.unpause()
             else:
-                try:
-                    print("Playing in reverse from the end")
-                    sound_data = pygame.sndarray.samples(self.sound)
-                    reversed_data = np.flip(sound_data)
-                    reversed_data_contiguous = np.ascontiguousarray(reversed_data)
-                    reversed_sound = pygame.sndarray.make_sound(reversed_data_contiguous)
-                    self.sound = reversed_sound
-                    self.sound.play()
-                    self.start_time = tm.time()
-                except Exception as e:
-                    show_message("Error", f"An error occurred while playing in reverse: {str(e)}")
-                    return
+
+                print("Playing in reverse from the end")
+                sound_data = pygame.sndarray.samples(self.sound)
+                reversed_data = np.flip(sound_data)
+                reversed_data_contiguous = np.ascontiguousarray(reversed_data)
+                reversed_sound = pygame.sndarray.make_sound(reversed_data_contiguous)
+                self.sound = reversed_sound
+                self.sound.play()
+                self.start_time = tm.time()
 
             self.is_playing = True
             self.paused = False
 
+    def change_volume(self, volume_factor):
+        """
+        play the loaded audio file with changed volume.
+        """
+        try:
+            volume_factor = float(volume_factor)
+        except ValueError:
+            show_message("Error", "Please enter a valid number for the volume factor.")
+            return
+        if not self.audio_file_path:
+            show_message("Error", "Please choose an audio file before changing loudness.")
+            return
 
+        self.canvas.setVisible(True)
+        if not self.is_playing:
+
+            print("Starting playback with changed volume")
+            if self.paused:
+                print("Resuming playback with changed volume")
+                pygame.mixer.unpause()
+            else:
+
+                print("Playing with changed volume ")
+                sound_data = pygame.sndarray.samples(self.sound)
+                volumed_data = np.multiply(sound_data, volume_factor)
+                volumed_data = volumed_data.astype(np.int16)
+
+                volumed_data_contiguous = np.ascontiguousarray(volumed_data)
+                volumed_sound = pygame.sndarray.make_sound(volumed_data_contiguous)
+                self.sound = volumed_sound
+                self.sound.play()
+                self.start_time = tm.time()
+
+            self.is_playing = True
+            self.paused = False
+
+    def change_tempo(self, tempo_factor):
+        """
+        Play the loaded audio slower.
+        """
+        try:
+            tempo_factor = float(tempo_factor)
+        except ValueError:
+            show_message("Error", "Please enter a valid number for the speed factor.")
+            return
+        if not self.audio_file_path:
+            show_message("Error", "Please choose an audio file before playing in reverse.")
+            return
+
+        self.canvas.setVisible(True)
+        if not self.is_playing:
+
+            print("Starting playback with changed tempo")
+            if self.paused:
+                print("Resuming playback with changed tempo")
+                pygame.mixer.unpause()
+            else:
+
+                print("Playing slower with changed tempo")
+
+                sound_data = pygame.sndarray.samples(self.sound)
+
+                changed_tempo_data = signal.resample(sound_data, int(sound_data.shape[0] * 1 / tempo_factor), axis=0)
+
+                # cast slower_data to int16
+                changed_tempo_data = changed_tempo_data.astype(np.int16)
+
+                slower_data_contiguous = np.ascontiguousarray(changed_tempo_data)
+                slower_sound = pygame.sndarray.make_sound(slower_data_contiguous)
+
+                self.sound = slower_sound
+                self.sound.play()
+                self.start_time = tm.time()
+
+            self.is_playing = True
+            self.paused = False
+
+    def noise_filter(self, noise_cutoff_frequency):
+        """
+        Play the loaded audio file with noise filter.
+        """
+        try:
+            noise_cutoff_frequency = float(noise_cutoff_frequency)
+            noise_cutoff_frequency = np.clip(noise_cutoff_frequency, 0, 1)
+        except ValueError:
+            show_message("Error", "Please enter a valid number for the noise cutoff strength (from 0 to 1).")
+            return
+        if not self.audio_file_path:
+            show_message("Error", "Please choose an audio file before playing in reverse.")
+            return
+
+        self.canvas.setVisible(True)
+        if not self.is_playing:
+
+            print("Starting playback with noise filter")
+            if self.paused:
+                print("Resuming playback with noise filter")
+                pygame.mixer.unpause()
+            else:
+
+                print("Playing with noise filter")
+
+                sound_data = pygame.sndarray.samples(self.sound)
+
+                # filter the sound data
+
+                b, a = signal.butter(5, noise_cutoff_frequency, 'low', analog=False)
+                filtered_data = signal.filtfilt(b, a, sound_data, axis=0)
+
+                # cast filtered_data to int16
+                filtered_data = filtered_data.astype(np.int16)
+
+                filtered_data_contiguous = np.ascontiguousarray(filtered_data)
+                filtered_sound = pygame.sndarray.make_sound(filtered_data_contiguous)
+
+                self.sound = filtered_sound
+                self.sound.play()
+                self.start_time = tm.time()
+
+            self.is_playing = True
+            self.paused = False
+    # def trim(self, start_time, end_time):
+    #     """
+    #     Trim the sound to the given start and end times.
+    #     """
+    #     if not self.audio_file_path:
+    #         show_message("Error", "Please choose an audio file before trimming.")
+    #         return
+    #
+    #     if not self.is_playing:
+    #         show_message("Error", "Please play the audio before trimming.")
+    #         return
+    #
+    #     self.canvas.setVisible(True)
+    #     if self.paused:
+    #         show_message("Error", "Please resume the audio before trimming.")
+    #         return
+    #
+    #     print("Trimming")
+    #     pygame.mixer.stop()
+    #     sound_data = pygame.sndarray.samples(self.sound)
+    #     start_index = int(start_time * 1000)
+    #     end_index = int(end_time * 1000)
+    #     sound_data = sound_data[start_index:end_index]
+    #     sound_data_contiguous = np.ascontiguousarray(sound_data)
+    #     self.sound = pygame.sndarray.make_sound(sound_data_contiguous)
+    #     self.sound.play()
+    #     self.start_time = tm.time()
+
+
+    # def saveas(self):
+    #     """
+    #     Save the sound to a file.
+    #     """
+    #     if not self.audio_file_path:
+    #         show_message("Error", "Please choose an audio file before saving.")
+    #         return
+    #
+    #     if not self.is_playing:
+    #         show_message("Error", "Please play the audio before saving.")
+    #         return
+    #
+    #     self.canvas.setVisible(True)
+    #     if self.paused:
+    #         show_message("Error", "Please resume the audio before saving.")
+    #         return
+    #
+    #     print("Saving")
+    #     pygame.mixer.stop()
+    #     sound_data = pygame.sndarray.samples(self.sound)
+    #     sound_data = sound_data[self.paused_position:]
+    #     sound_data_contiguous = np.ascontiguousarray(sound_data)
+    #     self.sound = pygame.sndarray.make_sound(sound_data_contiguous)
+    #     self.sound.play()
+    #     self.start_time = tm.time()
+    #     self.paused_position = 0
 
 
 if __name__ == '__main__':
