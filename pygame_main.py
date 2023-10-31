@@ -1,15 +1,15 @@
 import sys
 import time as tm
-import numpy as np
 
+import numpy as np
+import pygame
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QAction, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QAction, \
+    QMessageBox
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
-from pydub import AudioSegment
-from pydub.playback import play
 
 def show_message(title, message):
     """
@@ -24,16 +24,17 @@ def show_message(title, message):
     msg_box.setText(message)
     msg_box.exec_()
 
+
 class SoundPlayer(QMainWindow):
     """
-    A simple sound player application with a graphical user interface using Pydub.
+    A simple sound player application with a graphical user interface.
     """
 
     def __init__(self):
         super().__init__()
 
-        # Initialize the Pydub audio segment
-        self.audio = None
+        # Initialize the pygame library
+        self.sound = None
         self.timer = None
         self.stop_button = None
         self.toggle_button = None
@@ -41,9 +42,13 @@ class SoundPlayer(QMainWindow):
         self.ax = None
         self.canvas = None
         self.figure = None
+        pygame.init()
 
         # Path to the sound file (initially empty)
         self.audio_file_path = None
+
+        # Initialize the sound player
+        pygame.mixer.init()
 
         # Initialize the graphical user interface
         self.init_ui()
@@ -129,16 +134,36 @@ class SoundPlayer(QMainWindow):
             self.toggle_button.setEnabled(True)
             self.stop_button.setEnabled(True)
 
+    def set_volume(self, volume):
+        """
+        Set the volume of the loaded audio file.
+
+        Args:
+            volume (float): A float value between 0.0 and 1.0 where 0.0 is muted and 1.0 is full volume.
+        """
+        if 0.0 <= volume <= 1.0:
+            self.sound.set_volume(volume)
+        else:
+            # Handle an invalid volume value (e.g., outside the [0.0, 1.0] range).
+            # You can raise an exception, print an error message, or take other appropriate actions.
+            print("Invalid volume value. Please use a value between 0.0 and 1.0.")
+
     def load_audio_file(self):
         """
         Load the selected audio file and reset playback variables.
         """
-        self.audio = AudioSegment.from_file(self.audio_file_path)
+        pygame.mixer.init()
+        self.sound = pygame.mixer.Sound(self.audio_file_path)
         self.start_time = 0
         self.is_playing = False
         self.paused = False
         self.paused_time = 0
         self.paused_position = 0
+        # Example usage:
+        # Assuming you have already initialized the Sound object and have it stored in self.sound
+        # Set the volume to 50% (0.5)
+        self.set_volume(0.1)
+
 
     def toggle_play_sound(self):
         """
@@ -159,17 +184,16 @@ class SoundPlayer(QMainWindow):
 
         self.canvas.setVisible(True)
         if not self.is_playing:
+            pygame.mixer.music.set_volume(0.2)
             print("Starting playback")
             if self.paused:
                 print("Resuming")
-                self.audio = self.audio[self.paused_position:]
+                pygame.mixer.unpause()
             else:
                 print("Playing from the beginning")
-            try:
-                play(self.audio)
-            except Exception as e:
-                print("Error playing audio:", str(e))
-            self.start_time = tm.time()
+                self.sound = pygame.mixer.Sound(self.audio_file_path)
+                self.sound.play()
+                self.start_time = tm.time()
             self.is_playing = True
             self.paused = False
 
@@ -179,15 +203,15 @@ class SoundPlayer(QMainWindow):
         """
         if self.paused:
             print("Resuming")
-            self.audio = self.audio[self.paused_position:]
+            pygame.mixer.unpause()
             current_time = tm.time()
             elapsed_pause_time = current_time - self.paused_time
             self.start_time += elapsed_pause_time
         else:
             print("Pausing")
-            self.paused_position = (tm.time() - self.start_time) * 1000
-            self.audio = self.audio[self.paused_position:]
+            pygame.mixer.pause()
             self.paused_time = tm.time()
+            self.paused_position = pygame.mixer.music.get_pos() / 1000
         self.paused = not self.paused
 
     def stop_sound(self):
@@ -199,6 +223,7 @@ class SoundPlayer(QMainWindow):
             return
 
         print("Stopping playback")
+        pygame.mixer.stop()
         self.is_playing = False
         self.start_time = 0
         self.paused = False
@@ -209,13 +234,14 @@ class SoundPlayer(QMainWindow):
         Update the audio waveform plot and check for the end of playback.
         """
         if self.is_playing and not self.paused:
+            y, sr = pygame.sndarray.samples(self.sound), pygame.mixer.get_init()[0]
             current_time = tm.time() - self.start_time
-            sound_duration = len(self.audio) / 1000  # Convert duration to seconds
+            sound_duration = len(y) / sr
             current_time = min(current_time, sound_duration)
-            time = np.linspace(0, len(self.audio) / 1000, num=len(self.audio))
+            time = np.linspace(0, len(y) / sr, num=len(y))
 
             self.ax.clear()
-            self.ax.plot(time, self.audio.get_array_of_samples(), linewidth=1)
+            self.ax.plot(time, y, linewidth=1)
             self.ax.axvline(x=current_time, color="red", linestyle=":", label="Current Time")
             self.ax.set_xlabel("Time (s)")
             self.ax.set_ylabel("Amplitude")
@@ -224,6 +250,7 @@ class SoundPlayer(QMainWindow):
 
             if current_time >= sound_duration:
                 self.stop_sound()
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

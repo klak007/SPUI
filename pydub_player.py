@@ -165,10 +165,7 @@ class SoundPlayer(QMainWindow):
                 self.audio = self.audio[self.paused_position:]
             else:
                 print("Playing from the beginning")
-            try:
-                play(self.audio)
-            except Exception as e:
-                print("Error playing audio:", str(e))
+            play(self.audio)
             self.start_time = tm.time()
             self.is_playing = True
             self.paused = False
