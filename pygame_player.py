@@ -24,6 +24,7 @@ def show_message(title, message):
     msg_box.setText(message)
     msg_box.exec_()
 
+
 class SoundPlayer(QMainWindow):
     """
     A simple sound player application with a graphical user interface.
@@ -33,12 +34,9 @@ class SoundPlayer(QMainWindow):
         super().__init__()
 
         # Initialize the pygame library
-        self.reverse_button = None
+
         self.sound = None
         self.timer = None
-        self.stop_button = None
-        self.toggle_button = None
-        self.play_button = None
         self.ax = None
         self.canvas = None
         self.figure = None
@@ -87,8 +85,7 @@ class SoundPlayer(QMainWindow):
         self.canvas.setParent(self)
         self.canvas.setVisible(False)
 
-        #create button that leads to the window for trimming
-
+        # create button that leads to the window for trimming
 
         # Create buttons
         self.play_button = QPushButton("Play")
@@ -452,7 +449,6 @@ class SoundPlayer(QMainWindow):
     #     self.sound = pygame.sndarray.make_sound(sound_data_contiguous)
     #     self.sound.play()
     #     self.start_time = tm.time()
-
 
     # def saveas(self):
     #     """
