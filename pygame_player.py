@@ -1,6 +1,6 @@
 import sys
 import time as tm
-
+import scipy.signal as signal
 import numpy as np
 import pygame
 from PyQt5.QtCore import QTimer
@@ -34,6 +34,7 @@ class SoundPlayer(QMainWindow):
         super().__init__()
 
         # Initialize the pygame library
+        self.reverse_button = None
         self.sound = None
         self.timer = None
         self.stop_button = None
@@ -91,6 +92,7 @@ class SoundPlayer(QMainWindow):
         self.play_button = QPushButton("Play")
         self.toggle_button = QPushButton("Pause/Resume")
         self.stop_button = QPushButton("Stop")
+        self.reverse_button = QPushButton("Play in Reverse")
 
         # Add buttons to the layout
         layout = QVBoxLayout()
@@ -98,6 +100,7 @@ class SoundPlayer(QMainWindow):
         layout.addWidget(self.play_button)
         layout.addWidget(self.toggle_button)
         layout.addWidget(self.stop_button)
+        layout.addWidget(self.reverse_button)
 
         central_widget = QWidget()
         central_widget.setLayout(layout)
@@ -107,6 +110,7 @@ class SoundPlayer(QMainWindow):
         self.play_button.clicked.connect(self.play_sound)
         self.toggle_button.clicked.connect(self.toggle_play_sound)
         self.stop_button.clicked.connect(self.stop_sound)
+        self.reverse_button.clicked.connect(self.play_reverse_sound)
 
         # Initialize a timer to update the plot
         self.timer = QTimer(self)
@@ -117,6 +121,7 @@ class SoundPlayer(QMainWindow):
         self.play_button.setEnabled(False)
         self.toggle_button.setEnabled(False)
         self.stop_button.setEnabled(False)
+        self.reverse_button.setEnabled(False)
 
     def open_audio_file(self):
         """
@@ -125,7 +130,6 @@ class SoundPlayer(QMainWindow):
         options = QFileDialog.Options()
         file_name, _ = QFileDialog.getOpenFileName(self, "Open Audio File", "",
                                                    "Audio Files (*.ogg *.wav *.mp3);;All Files (*)", options=options)
-        show_message("File Loaded", "The file was successfully loaded.")
 
         if file_name:
             self.audio_file_path = file_name
@@ -133,20 +137,8 @@ class SoundPlayer(QMainWindow):
             self.play_button.setEnabled(True)
             self.toggle_button.setEnabled(True)
             self.stop_button.setEnabled(True)
+            self.reverse_button.setEnabled(True)
 
-    def set_volume(self, volume):
-        """
-        Set the volume of the loaded audio file.
-
-        Args:
-            volume (float): A float value between 0.0 and 1.0 where 0.0 is muted and 1.0 is full volume.
-        """
-        if 0.0 <= volume <= 1.0:
-            self.sound.set_volume(volume)
-        else:
-            # Handle an invalid volume value (e.g., outside the [0.0, 1.0] range).
-            # You can raise an exception, print an error message, or take other appropriate actions.
-            print("Invalid volume value. Please use a value between 0.0 and 1.0.")
 
     def load_audio_file(self):
         """
@@ -159,11 +151,6 @@ class SoundPlayer(QMainWindow):
         self.paused = False
         self.paused_time = 0
         self.paused_position = 0
-        # Example usage:
-        # Assuming you have already initialized the Sound object and have it stored in self.sound
-        # Set the volume to 50% (0.5)
-        self.set_volume(0.1)
-
 
     def toggle_play_sound(self):
         """
@@ -184,7 +171,7 @@ class SoundPlayer(QMainWindow):
 
         self.canvas.setVisible(True)
         if not self.is_playing:
-            pygame.mixer.music.set_volume(0.2)
+
             print("Starting playback")
             if self.paused:
                 print("Resuming")
@@ -250,6 +237,40 @@ class SoundPlayer(QMainWindow):
 
             if current_time >= sound_duration:
                 self.stop_sound()
+
+    def play_reverse_sound(self):
+        """
+        Play the loaded audio file in reverse.
+        """
+        if not self.audio_file_path:
+            show_message("Error", "Please choose an audio file before playing in reverse.")
+            return
+
+        self.canvas.setVisible(True)
+        if not self.is_playing:
+
+            print("Starting reverse playback")
+            if self.paused:
+                print("Resuming reverse playback")
+                pygame.mixer.unpause()
+            else:
+                try:
+                    print("Playing in reverse from the end")
+                    sound_data = pygame.sndarray.samples(self.sound)
+                    reversed_data = np.flip(sound_data)
+                    reversed_data_contiguous = np.ascontiguousarray(reversed_data)
+                    reversed_sound = pygame.sndarray.make_sound(reversed_data_contiguous)
+                    self.sound = reversed_sound
+                    self.sound.play()
+                    self.start_time = tm.time()
+                except Exception as e:
+                    show_message("Error", f"An error occurred while playing in reverse: {str(e)}")
+                    return
+
+            self.is_playing = True
+            self.paused = False
+
+
 
 
 if __name__ == '__main__':

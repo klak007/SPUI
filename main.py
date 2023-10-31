@@ -118,9 +118,10 @@ class SoundPlayer(QMainWindow):
         Open a file dialog to choose an audio file for playback.
         """
         options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getOpenFileName(self, "Open Audio File", "",
-                                                   "Audio Files (*.ogg *.wav *.mp3);;All Files (*)", options=options)
-        show_message("File Loaded", "The file was successfully loaded.")
+        file_name, _ = QFileDialog.getOpenFileName(self, "Open Audio File", "audiofile",
+                                                   "Audio Files (*.wav );;All Files (*)", options=options)
+        print("Loading file:", file_name)
+        print("File Loaded", "The file was successfully loaded.")
 
         if file_name:
             self.audio_file_path = file_name
@@ -133,7 +134,7 @@ class SoundPlayer(QMainWindow):
         """
         Load the selected audio file and reset playback variables.
         """
-        self.audio = AudioSegment.from_file(self.audio_file_path)
+        self.audio = AudioSegment.from_wav(self.audio_file_path)
         self.start_time = 0
         self.is_playing = False
         self.paused = False
@@ -212,10 +213,12 @@ class SoundPlayer(QMainWindow):
             current_time = tm.time() - self.start_time
             sound_duration = len(self.audio) / 1000  # Convert duration to seconds
             current_time = min(current_time, sound_duration)
-            time = np.linspace(0, len(self.audio) / 1000, num=len(self.audio))
+            print(current_time, sound_duration)
+            array_of_samples = self.audio.get_array_of_samples()
+            time = np.linspace(0, len(self.audio) / 1000, num=len(array_of_samples))
 
             self.ax.clear()
-            self.ax.plot(time, self.audio.get_array_of_samples(), linewidth=1)
+            self.ax.plot(time, array_of_samples, linewidth=1)
             self.ax.axvline(x=current_time, color="red", linestyle=":", label="Current Time")
             self.ax.set_xlabel("Time (s)")
             self.ax.set_ylabel("Amplitude")

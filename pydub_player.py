@@ -104,9 +104,9 @@ class SoundPlayer(QMainWindow):
         self.stop_button.clicked.connect(self.stop_sound)
 
         # Initialize a timer to update the plot
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_plot)
-        self.timer.start(10)  # Update the plot every 10 ms
+        # self.timer = QTimer(self)
+        # self.timer.timeout.connect(self.update_plot)
+        # self.timer.start(10)  # Update the plot every 10 ms
 
         # Disable playback, pause, and stop buttons initially
         self.play_button.setEnabled(False)
@@ -201,26 +201,26 @@ class SoundPlayer(QMainWindow):
         self.paused = False
         self.paused_time = 0
 
-    def update_plot(self):
-        """
-        Update the audio waveform plot and check for the end of playback.
-        """
-        if self.is_playing and not self.paused:
-            current_time = tm.time() - self.start_time
-            sound_duration = len(self.audio) / 1000  # Convert duration to seconds
-            current_time = min(current_time, sound_duration)
-            time = np.linspace(0, len(self.audio) / 1000, num=len(self.audio))
-
-            self.ax.clear()
-            self.ax.plot(time, self.audio.get_array_of_samples(), linewidth=1)
-            self.ax.axvline(x=current_time, color="red", linestyle=":", label="Current Time")
-            self.ax.set_xlabel("Time (s)")
-            self.ax.set_ylabel("Amplitude")
-            self.ax.legend(loc="upper right")
-            self.canvas.draw()
-
-            if current_time >= sound_duration:
-                self.stop_sound()
+    # def update_plot(self):
+    #     """
+    #     Update the audio waveform plot and check for the end of playback.
+    #     """
+    #     if self.is_playing and not self.paused:
+    #         current_time = tm.time() - self.start_time
+    #         sound_duration = len(self.audio) / 1000  # Convert duration to seconds
+    #         current_time = min(current_time, sound_duration)
+    #         time = np.linspace(0, len(self.audio) / 1000, num=len(self.audio))
+    #
+    #         self.ax.clear()
+    #         self.ax.plot(time, self.audio.get_array_of_samples(), linewidth=1)
+    #         self.ax.axvline(x=current_time, color="red", linestyle=":", label="Current Time")
+    #         self.ax.set_xlabel("Time (s)")
+    #         self.ax.set_ylabel("Amplitude")
+    #         self.ax.legend(loc="upper right")
+    #         self.canvas.draw()
+    #
+    #         if current_time >= sound_duration:
+    #             self.stop_sound()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
