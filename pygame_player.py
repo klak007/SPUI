@@ -3,6 +3,7 @@ import time as tm
 import scipy.signal as signal
 import numpy as np
 import wave
+from pydub import AudioSegment
 import pygame
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QIcon
@@ -100,7 +101,6 @@ class SoundPlayer(QMainWindow):
 
         self.trim_window.show()
 
-
     def close_trim_window(self):
         """
         Close the trim window.
@@ -108,7 +108,6 @@ class SoundPlayer(QMainWindow):
         if self.trim_window:
             self.trim_window.close()
             self.trim_window = None
-
 
     def init_ui(self):
         """
@@ -144,12 +143,10 @@ class SoundPlayer(QMainWindow):
         self.toggle_button = QPushButton("Pause/Resume")
         self.stop_button = QPushButton("Stop")
         self.reverse_button = QPushButton("Play in Reverse")
+        self.export_button = QPushButton("Export Changed Sound")
 
         self.trim_button = QPushButton("Trim")
         self.trim_button.clicked.connect(self.open_trim_window)
-
-        self.saveas_button = QPushButton("Save As")
-
 
         # Create a label and input field for specifying loudness factor
         self.volume_label = QLabel("Loudness Factor:")
@@ -175,7 +172,7 @@ class SoundPlayer(QMainWindow):
         layout.addWidget(self.stop_button)
         layout.addWidget(self.reverse_button)
         layout.addWidget(self.trim_button)
-        layout.addWidget(self.saveas_button)
+        layout.addWidget(self.export_button)
 
         # Add tempo label, input and tempo submit button to the layout
         layout.addWidget(self.tempo_label)
@@ -201,7 +198,7 @@ class SoundPlayer(QMainWindow):
         self.toggle_button.clicked.connect(self.toggle_play_sound)
         self.stop_button.clicked.connect(self.stop_sound)
         self.reverse_button.clicked.connect(self.play_reverse_sound)
-        self.saveas_button.clicked.connect(self.saveas)
+        self.export_button.clicked.connect(lambda: self.export_changed_sound("changed_sound.wav"))
 
         # Initialize a timer to update the plot
         self.timer = QTimer(self)
@@ -213,8 +210,8 @@ class SoundPlayer(QMainWindow):
         self.toggle_button.setEnabled(False)
         self.stop_button.setEnabled(False)
         self.reverse_button.setEnabled(False)
+        self.export_button.setEnabled(False)
         self.trim_button.setEnabled(False)
-        self.saveas_button.setEnabled(False)
 
         self.volume_submit_button.setEnabled(False)
         self.tempo_submit_button.setEnabled(False)
@@ -235,8 +232,8 @@ class SoundPlayer(QMainWindow):
             self.toggle_button.setEnabled(True)
             self.stop_button.setEnabled(True)
             self.reverse_button.setEnabled(True)
+            self.export_button.setEnabled(True)
             self.trim_button.setEnabled(True)
-            self.saveas_button.setEnabled(True)
 
             self.volume_submit_button.setEnabled(True)
             self.tempo_submit_button.setEnabled(True)
@@ -285,6 +282,9 @@ class SoundPlayer(QMainWindow):
                 self.start_time = tm.time()
             self.is_playing = True
             self.paused = False
+
+
+
 
     def toggle(self):
         """
@@ -368,6 +368,32 @@ class SoundPlayer(QMainWindow):
 
             self.is_playing = True
             self.paused = False
+
+    def export_changed_sound(self, output_file_path):
+        """
+        Export the changed sound with effects to a file.
+
+        Args:
+            output_file_path (str): The path where the exported sound file will be saved.
+        """
+        if not self.sound:
+            show_message("Error", "No sound is loaded to export.")
+            return
+
+        if self.paused:
+            show_message("Error", "Please resume the audio with effects before exporting.")
+            return
+
+        # Stop the current playback
+        pygame.mixer.stop()
+
+        # Export the sound with effects to the specified file
+        sound = pygame.sndarray.samples(self.sound)
+        sound = AudioSegment.from_numpy_array(sound)
+        sound.export(output_file_path, format="wav")
+
+        # Display a success message
+        show_message("Export Successful", f"The changed sound has been exported to {output_file_path}")
 
     def change_volume(self, volume_factor):
         """
@@ -490,6 +516,7 @@ class SoundPlayer(QMainWindow):
 
             self.is_playing = True
             self.paused = False
+
     def trim(self, start_time, end_time):
         """
         Trim the sound to the given start and end times.
@@ -517,37 +544,6 @@ class SoundPlayer(QMainWindow):
         self.sound = pygame.sndarray.make_sound(sound_data_contiguous)
         self.sound.play()
         self.start_time = tm.time()
-
-    def saveas(self, output_filename):
-        """
-        Save the sound to a file.
-        """
-        if not self.audio_file_path:
-            show_message("Error", "Please choose an audio file before saving.")
-            return
-
-        # Create a Pygame Sound object from the sound data
-        sound_data = pygame.sndarray.samples(self.sound)
-        sound = pygame.sndarray.make_sound(sound_data)
-
-        # Initialize Pygame Mixer
-        pygame.mixer.init(frequency=sample_rate, size=sample_width * 8, channels=channels)
-
-        # Play the sound to Pygame Mixer
-        sound.play()
-
-        # Wait until the sound finishes playing
-        pygame.time.wait(int(sound.get_length() * 1000))
-
-        # Stop Pygame Mixer
-        pygame.mixer.quit()
-
-        # Save the sound data as a WAV file
-        with wave.open(filename, 'wb') as wf:
-            wf.setnchannels(channels)
-            wf.setsampwidth(sample_width)
-            wf.setframerate(sample_rate)
-            wf.writeframes(sound_data.tobytes())
 
 
 if __name__ == '__main__':
