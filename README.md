@@ -18,7 +18,7 @@ To run this application, you need the following Python libraries installed:
 * Wave
 You can install them using the following command:
 ```
-pip install PyQt5 pygame numpy scipy wave pydub matplotlib
+pip install PyQt5 pygame numpy scipy wave matplotlib
 ```
 To install the libraries, you need to have Python 3.6 or higher installed on your computer. You can download it from the official website: https://www.python.org/downloads/
 To install pydub you will need to install ffmpeg. You can download it from the official website: https://ffmpeg.org/download.html. Or install it by ffmpeg-downloader, then head over to the ffmpeg folder and add bin folder to your PATH environment variable.
