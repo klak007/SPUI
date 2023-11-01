@@ -2,11 +2,12 @@ import sys
 import time as tm
 import scipy.signal as signal
 import numpy as np
+import wave
 import pygame
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QAction, \
-    QMessageBox, QLabel, QLineEdit
+    QMessageBox, QLabel, QLineEdit, QGridLayout, QHBoxLayout
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
@@ -40,6 +41,8 @@ class SoundPlayer(QMainWindow):
         self.ax = None
         self.canvas = None
         self.figure = None
+        # Initialize a variable to hold the trim window
+        self.trim_window = None
         pygame.init()
 
         # Path to the sound file (initially empty)
@@ -57,6 +60,55 @@ class SoundPlayer(QMainWindow):
         self.paused = False
         self.paused_time = 0
         self.paused_position = 0
+
+    def open_trim_window(self):
+        """
+        Open a window to trim the audio.
+        """
+        self.trim_window = QMainWindow()
+        self.trim_window.setWindowTitle("Trim Audio")
+        self.trim_window.setGeometry(300, 200, 400, 300)
+
+        # Create two input fields with labels for start and end time
+        start_label = QLabel("Start Time:")
+        end_label = QLabel("End Time:")
+        start_input = QLineEdit()
+        end_input = QLineEdit()
+        submit_button = QPushButton("Submit")
+        submit_button.clicked.connect(lambda: self.trim(start_input.text(), end_input.text()))
+
+        # Create a horizontal layout for the input fields and button
+        input_button_layout = QHBoxLayout()
+        input_button_layout.addWidget(start_label)
+        input_button_layout.addWidget(start_input)
+        input_button_layout.addWidget(end_label)
+        input_button_layout.addWidget(end_input)
+
+        # Add the input fields and button layout to the main layout
+        layout = QGridLayout()
+        layout.addLayout(input_button_layout, 0, 0)
+
+        # Add the "Submit" button in the middle of the width
+        layout.addWidget(submit_button, 1, 0, 1, 2, alignment=Qt.AlignHCenter)
+
+        # Create a widget to contain the layout
+        widget = QWidget()
+        widget.setLayout(layout)
+
+        # Set the widget as the central widget of the new window
+        self.trim_window.setCentralWidget(widget)
+
+        self.trim_window.show()
+
+
+    def close_trim_window(self):
+        """
+        Close the trim window.
+        """
+        if self.trim_window:
+            self.trim_window.close()
+            self.trim_window = None
+
 
     def init_ui(self):
         """
@@ -93,6 +145,12 @@ class SoundPlayer(QMainWindow):
         self.stop_button = QPushButton("Stop")
         self.reverse_button = QPushButton("Play in Reverse")
 
+        self.trim_button = QPushButton("Trim")
+        self.trim_button.clicked.connect(self.open_trim_window)
+
+        self.saveas_button = QPushButton("Save As")
+
+
         # Create a label and input field for specifying loudness factor
         self.volume_label = QLabel("Loudness Factor:")
         self.volume_input = QLineEdit()
@@ -116,15 +174,20 @@ class SoundPlayer(QMainWindow):
         layout.addWidget(self.toggle_button)
         layout.addWidget(self.stop_button)
         layout.addWidget(self.reverse_button)
+        layout.addWidget(self.trim_button)
+        layout.addWidget(self.saveas_button)
 
+        # Add tempo label, input and tempo submit button to the layout
         layout.addWidget(self.tempo_label)
         layout.addWidget(self.tempo_input)
         layout.addWidget(self.tempo_submit_button)
 
+        # Add volume label, input and volume submit button to the layout
         layout.addWidget(self.volume_label)
         layout.addWidget(self.volume_input)
         layout.addWidget(self.volume_submit_button)
 
+        # Add noise label, input and noise submit button to the layout
         layout.addWidget(self.noise_label)
         layout.addWidget(self.noise_input)
         layout.addWidget(self.noise_submit_button)
@@ -138,6 +201,7 @@ class SoundPlayer(QMainWindow):
         self.toggle_button.clicked.connect(self.toggle_play_sound)
         self.stop_button.clicked.connect(self.stop_sound)
         self.reverse_button.clicked.connect(self.play_reverse_sound)
+        self.saveas_button.clicked.connect(self.saveas)
 
         # Initialize a timer to update the plot
         self.timer = QTimer(self)
@@ -149,6 +213,8 @@ class SoundPlayer(QMainWindow):
         self.toggle_button.setEnabled(False)
         self.stop_button.setEnabled(False)
         self.reverse_button.setEnabled(False)
+        self.trim_button.setEnabled(False)
+        self.saveas_button.setEnabled(False)
 
         self.volume_submit_button.setEnabled(False)
         self.tempo_submit_button.setEnabled(False)
@@ -169,6 +235,8 @@ class SoundPlayer(QMainWindow):
             self.toggle_button.setEnabled(True)
             self.stop_button.setEnabled(True)
             self.reverse_button.setEnabled(True)
+            self.trim_button.setEnabled(True)
+            self.saveas_button.setEnabled(True)
 
             self.volume_submit_button.setEnabled(True)
             self.tempo_submit_button.setEnabled(True)
@@ -422,60 +490,64 @@ class SoundPlayer(QMainWindow):
 
             self.is_playing = True
             self.paused = False
-    # def trim(self, start_time, end_time):
-    #     """
-    #     Trim the sound to the given start and end times.
-    #     """
-    #     if not self.audio_file_path:
-    #         show_message("Error", "Please choose an audio file before trimming.")
-    #         return
-    #
-    #     if not self.is_playing:
-    #         show_message("Error", "Please play the audio before trimming.")
-    #         return
-    #
-    #     self.canvas.setVisible(True)
-    #     if self.paused:
-    #         show_message("Error", "Please resume the audio before trimming.")
-    #         return
-    #
-    #     print("Trimming")
-    #     pygame.mixer.stop()
-    #     sound_data = pygame.sndarray.samples(self.sound)
-    #     start_index = int(start_time * 1000)
-    #     end_index = int(end_time * 1000)
-    #     sound_data = sound_data[start_index:end_index]
-    #     sound_data_contiguous = np.ascontiguousarray(sound_data)
-    #     self.sound = pygame.sndarray.make_sound(sound_data_contiguous)
-    #     self.sound.play()
-    #     self.start_time = tm.time()
+    def trim(self, start_time, end_time):
+        """
+        Trim the sound to the given start and end times.
+        """
+        if not self.audio_file_path:
+            show_message("Error", "Please choose an audio file before trimming.")
+            return
 
-    # def saveas(self):
-    #     """
-    #     Save the sound to a file.
-    #     """
-    #     if not self.audio_file_path:
-    #         show_message("Error", "Please choose an audio file before saving.")
-    #         return
-    #
-    #     if not self.is_playing:
-    #         show_message("Error", "Please play the audio before saving.")
-    #         return
-    #
-    #     self.canvas.setVisible(True)
-    #     if self.paused:
-    #         show_message("Error", "Please resume the audio before saving.")
-    #         return
-    #
-    #     print("Saving")
-    #     pygame.mixer.stop()
-    #     sound_data = pygame.sndarray.samples(self.sound)
-    #     sound_data = sound_data[self.paused_position:]
-    #     sound_data_contiguous = np.ascontiguousarray(sound_data)
-    #     self.sound = pygame.sndarray.make_sound(sound_data_contiguous)
-    #     self.sound.play()
-    #     self.start_time = tm.time()
-    #     self.paused_position = 0
+        if not self.is_playing:
+            show_message("Error", "Please play the audio before trimming.")
+            return
+
+        self.canvas.setVisible(True)
+        if self.paused:
+            show_message("Error", "Please resume the audio before trimming.")
+            return
+
+        print("Trimming")
+        pygame.mixer.stop()
+        sound_data = pygame.sndarray.samples(self.sound)
+        start_index = int(start_time * 1000)
+        end_index = int(end_time * 1000)
+        sound_data = sound_data[start_index:end_index]
+        sound_data_contiguous = np.ascontiguousarray(sound_data)
+        self.sound = pygame.sndarray.make_sound(sound_data_contiguous)
+        self.sound.play()
+        self.start_time = tm.time()
+
+    def saveas(self, output_filename):
+        """
+        Save the sound to a file.
+        """
+        if not self.audio_file_path:
+            show_message("Error", "Please choose an audio file before saving.")
+            return
+
+        # Create a Pygame Sound object from the sound data
+        sound_data = pygame.sndarray.samples(self.sound)
+        sound = pygame.sndarray.make_sound(sound_data)
+
+        # Initialize Pygame Mixer
+        pygame.mixer.init(frequency=sample_rate, size=sample_width * 8, channels=channels)
+
+        # Play the sound to Pygame Mixer
+        sound.play()
+
+        # Wait until the sound finishes playing
+        pygame.time.wait(int(sound.get_length() * 1000))
+
+        # Stop Pygame Mixer
+        pygame.mixer.quit()
+
+        # Save the sound data as a WAV file
+        with wave.open(filename, 'wb') as wf:
+            wf.setnchannels(channels)
+            wf.setsampwidth(sample_width)
+            wf.setframerate(sample_rate)
+            wf.writeframes(sound_data.tobytes())
 
 
 if __name__ == '__main__':
