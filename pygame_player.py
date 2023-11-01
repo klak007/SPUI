@@ -3,7 +3,7 @@ import time as tm
 import scipy.signal as signal
 import numpy as np
 import wave
-from pydub import AudioSegment
+
 import pygame
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QIcon
@@ -369,31 +369,31 @@ class SoundPlayer(QMainWindow):
             self.is_playing = True
             self.paused = False
 
-    def export_changed_sound(self, output_file_path):
-        """
-        Export the changed sound with effects to a file.
-
-        Args:
-            output_file_path (str): The path where the exported sound file will be saved.
-        """
-        if not self.sound:
-            show_message("Error", "No sound is loaded to export.")
-            return
-
-        if self.paused:
-            show_message("Error", "Please resume the audio with effects before exporting.")
-            return
-
-        # Stop the current playback
-        pygame.mixer.stop()
-
-        # Export the sound with effects to the specified file
-        sound = pygame.sndarray.samples(self.sound)
-        sound = AudioSegment.from_numpy_array(sound)
-        sound.export(output_file_path, format="wav")
-
-        # Display a success message
-        show_message("Export Successful", f"The changed sound has been exported to {output_file_path}")
+    # def export_changed_sound(self, output_file_path):
+    #     """
+    #     Export the changed sound with effects to a file.
+    #
+    #     Args:
+    #         output_file_path (str): The path where the exported sound file will be saved.
+    #     """
+    #     if not self.sound:
+    #         show_message("Error", "No sound is loaded to export.")
+    #         return
+    #
+    #     if self.paused:
+    #         show_message("Error", "Please resume the audio with effects before exporting.")
+    #         return
+    #
+    #     # Stop the current playback
+    #     pygame.mixer.stop()
+    #
+    #     # Export the sound with effects to the specified file
+    #     sound = pygame.sndarray.samples(self.sound)
+    #     sound = AudioSegment.from_numpy_array(sound) # dont use this, its pydub
+    #     sound.export(output_file_path, format="wav")
+    #
+    #     # Display a success message
+    #     show_message("Export Successful", f"The changed sound has been exported to {output_file_path}")
 
     def change_volume(self, volume_factor):
         """

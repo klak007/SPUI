@@ -12,7 +12,6 @@ This is a simple sound player application with a graphical user interface built 
 To run this application, you need the following Python libraries installed:
 * PyQt5
 * Pygame
-* Pydub
 * Numpy
 * Scipy
 * Matplotlib
