@@ -143,6 +143,7 @@ class SoundPlayer(QMainWindow):
         self.toggle_button = QPushButton("Pause/Resume")
         self.stop_button = QPushButton("Stop")
         self.reverse_button = QPushButton("Play in Reverse")
+
         self.export_button = QPushButton("Export Changed Sound")
 
         self.trim_button = QPushButton("Trim")
@@ -164,6 +165,14 @@ class SoundPlayer(QMainWindow):
         self.noise_submit_button = QPushButton("Submit noise cutoff strength (from 0 to 1). and play with noise filter")
         self.noise_submit_button.clicked.connect(lambda: self.noise_filter(self.noise_input.text()))
 
+        self.echo_delay_label = QLabel("Echo Delay:")
+        self.echo_delay_input = QLineEdit()
+        self.echo_attenuation_label = QLabel("Echo Attenuation:")
+        self.echo_attenuation_input = QLineEdit()
+        self.echo_submit_button = QPushButton("Submit echo delay and attenuation and play with echo effect")
+        self.echo_submit_button.clicked.connect(lambda: self.add_echo_effect(self.echo_delay_input.text(), self.echo_attenuation_input.text()))
+
+
         # Add buttons to the layout
         layout = QVBoxLayout()
         layout.addWidget(self.canvas)
@@ -171,6 +180,7 @@ class SoundPlayer(QMainWindow):
         layout.addWidget(self.toggle_button)
         layout.addWidget(self.stop_button)
         layout.addWidget(self.reverse_button)
+        # layout.addWidget(self.echo_submit_button)
         layout.addWidget(self.trim_button)
         layout.addWidget(self.export_button)
 
@@ -189,6 +199,14 @@ class SoundPlayer(QMainWindow):
         layout.addWidget(self.noise_input)
         layout.addWidget(self.noise_submit_button)
 
+        # Add echo label, input and echo submit button to the layout
+        layout.addWidget(self.echo_delay_label)
+        layout.addWidget(self.echo_delay_input)
+        layout.addWidget(self.echo_attenuation_label)
+        layout.addWidget(self.echo_attenuation_input)
+
+        layout.addWidget(self.echo_submit_button)
+
         central_widget = QWidget()
         central_widget.setLayout(layout)
         self.setCentralWidget(central_widget)
@@ -198,6 +216,8 @@ class SoundPlayer(QMainWindow):
         self.toggle_button.clicked.connect(self.toggle_play_sound)
         self.stop_button.clicked.connect(self.stop_sound)
         self.reverse_button.clicked.connect(self.play_reverse_sound)
+        # self.echo_submit_button.clicked.connect(lambda: self.add_echo_effect(self.echo_delay_input.text(), self.echo_attenuation_input.text()))
+
         self.export_button.clicked.connect(lambda: self.export_changed_sound("changed_sound.wav"))
 
         # Initialize a timer to update the plot
@@ -210,6 +230,8 @@ class SoundPlayer(QMainWindow):
         self.toggle_button.setEnabled(False)
         self.stop_button.setEnabled(False)
         self.reverse_button.setEnabled(False)
+        self.echo_submit_button.setEnabled(False)
+
         self.export_button.setEnabled(False)
         self.trim_button.setEnabled(False)
 
@@ -232,6 +254,8 @@ class SoundPlayer(QMainWindow):
             self.toggle_button.setEnabled(True)
             self.stop_button.setEnabled(True)
             self.reverse_button.setEnabled(True)
+            self.echo_submit_button.setEnabled(True)
+
             self.export_button.setEnabled(True)
             self.trim_button.setEnabled(True)
 
@@ -250,6 +274,7 @@ class SoundPlayer(QMainWindow):
         self.paused = False
         self.paused_time = 0
         self.paused_position = 0
+        self.sample_rate = wave.open(self.audio_file_path).getframerate()
 
     def toggle_play_sound(self):
         """
@@ -513,6 +538,51 @@ class SoundPlayer(QMainWindow):
                 self.sound = filtered_sound
                 self.sound.play()
                 self.start_time = tm.time()
+
+            self.is_playing = True
+            self.paused = False
+
+    def add_echo_effect(self, delay, attenuation):
+        """
+        Dodaj efekt echa do załadowanego pliku dźwiękowego.
+        """
+        try:
+            delay = float(delay)
+            attenuation = float(attenuation)
+        except ValueError:
+            show_message("Error", "Please enter valid numbers for delay and attenuation.")
+            return
+
+        if not self.audio_file_path:
+            show_message("Error", "Please choose an audio file before applying the echo effect.")
+            return
+
+        self.canvas.setVisible(True)
+
+        if not self.is_playing:
+            print("Adding echo effect")
+            sound_data = pygame.sndarray.samples(self.sound)
+
+            # Oblicz długość echa w próbkach
+
+            echo_length = int(delay * self.sample_rate)
+            print("Calculating echo length", delay, self.sample_rate)
+            # Inicjalizuj tablicę dla danych echa
+            echo_data = np.zeros_like(sound_data)
+
+            # Dodaj efekt echa do dźwięku
+            for i in range(echo_length, len(sound_data)):
+                echo_data[i] = sound_data[i] + attenuation * sound_data[i - echo_length]
+
+            # Kombinuj oryginalne i dane echa
+            combined_data = np.clip(sound_data + echo_data, -32768, 32767)
+
+            combined_data_contiguous = np.ascontiguousarray(combined_data)
+            combined_sound = pygame.sndarray.make_sound(combined_data_contiguous)
+
+            self.sound = combined_sound
+            self.sound.play()
+            self.start_time = tm.time()
 
             self.is_playing = True
             self.paused = False
