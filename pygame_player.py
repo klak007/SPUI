@@ -1,16 +1,18 @@
 import sys
 import time as tm
-import scipy.signal as signal
+
 import numpy as np
 import wave
-
 import pygame
+import scipy.signal as signal
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QAction, \
     QMessageBox, QLabel, QLineEdit, QGridLayout, QHBoxLayout
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
 
 
 def show_message(title, message):
@@ -42,7 +44,6 @@ class SoundPlayer(QMainWindow):
         self.ax = None
         self.canvas = None
         self.figure = None
-        # Initialize a variable to hold the trim window
         self.trim_window = None
         pygame.init()
 
@@ -113,6 +114,7 @@ class SoundPlayer(QMainWindow):
         """
         Initialize the user interface elements and layout.
         """
+        # Set the window title and size
         self.setWindowTitle("Sound Player")
         self.setGeometry(100, 100, 800, 600)
 
@@ -136,18 +138,16 @@ class SoundPlayer(QMainWindow):
         self.canvas.setParent(self)
         self.canvas.setVisible(False)
 
-        # create button that leads to the window for trimming
-
         # Create buttons
         self.play_button = QPushButton("Play")
         self.toggle_button = QPushButton("Pause/Resume")
         self.stop_button = QPushButton("Stop")
         self.reverse_button = QPushButton("Play in Reverse")
 
-        self.export_button = QPushButton("Export Changed Sound")
+        # self.export_button = QPushButton("Export Changed Sound")
 
-        self.trim_button = QPushButton("Trim")
-        self.trim_button.clicked.connect(self.open_trim_window)
+        # self.trim_button = QPushButton("Trim")
+        # self.trim_button.clicked.connect(self.open_trim_window)
 
         # Create a label and input field for specifying loudness factor
         self.volume_label = QLabel("Loudness Factor:")
@@ -170,8 +170,8 @@ class SoundPlayer(QMainWindow):
         self.echo_attenuation_label = QLabel("Echo Attenuation:")
         self.echo_attenuation_input = QLineEdit()
         self.echo_submit_button = QPushButton("Submit echo delay and attenuation and play with echo effect")
-        self.echo_submit_button.clicked.connect(lambda: self.add_echo_effect(self.echo_delay_input.text(), self.echo_attenuation_input.text()))
-
+        self.echo_submit_button.clicked.connect(
+            lambda: self.add_echo_effect(self.echo_delay_input.text(), self.echo_attenuation_input.text()))
 
         # Add buttons to the layout
         layout = QVBoxLayout()
@@ -180,9 +180,9 @@ class SoundPlayer(QMainWindow):
         layout.addWidget(self.toggle_button)
         layout.addWidget(self.stop_button)
         layout.addWidget(self.reverse_button)
-        # layout.addWidget(self.echo_submit_button)
-        layout.addWidget(self.trim_button)
-        layout.addWidget(self.export_button)
+
+        # layout.addWidget(self.trim_button)
+        # layout.addWidget(self.export_button)
 
         # Add tempo label, input and tempo submit button to the layout
         layout.addWidget(self.tempo_label)
@@ -216,28 +216,26 @@ class SoundPlayer(QMainWindow):
         self.toggle_button.clicked.connect(self.toggle_play_sound)
         self.stop_button.clicked.connect(self.stop_sound)
         self.reverse_button.clicked.connect(self.play_reverse_sound)
-        # self.echo_submit_button.clicked.connect(lambda: self.add_echo_effect(self.echo_delay_input.text(), self.echo_attenuation_input.text()))
 
-        self.export_button.clicked.connect(lambda: self.export_changed_sound("changed_sound.wav"))
+        # self.export_button.clicked.connect(lambda: self.export_changed_sound("changed_sound.wav"))
 
         # Initialize a timer to update the plot
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_plot)
-        self.timer.start(10)  # Update the plot every 10 ms
+        self.timer.start(100)  # Update the plot every 100 ms
 
         # Disable playback, pause, and stop buttons initially
         self.play_button.setEnabled(False)
         self.toggle_button.setEnabled(False)
         self.stop_button.setEnabled(False)
         self.reverse_button.setEnabled(False)
-        self.echo_submit_button.setEnabled(False)
-
-        self.export_button.setEnabled(False)
-        self.trim_button.setEnabled(False)
 
         self.volume_submit_button.setEnabled(False)
         self.tempo_submit_button.setEnabled(False)
         self.noise_submit_button.setEnabled(False)
+        self.echo_submit_button.setEnabled(False)
+        # self.export_button.setEnabled(False)
+        # self.trim_button.setEnabled(False)
 
     def open_audio_file(self):
         """
@@ -245,7 +243,7 @@ class SoundPlayer(QMainWindow):
         """
         options = QFileDialog.Options()
         file_name, _ = QFileDialog.getOpenFileName(self, "Open Audio File", "",
-                                                   "Audio Files (*.ogg *.wav *.mp3);;All Files (*)", options=options)
+                                                   "Audio Files (*.wav);;All Files (*)", options=options)
 
         if file_name:
             self.audio_file_path = file_name
@@ -256,8 +254,8 @@ class SoundPlayer(QMainWindow):
             self.reverse_button.setEnabled(True)
             self.echo_submit_button.setEnabled(True)
 
-            self.export_button.setEnabled(True)
-            self.trim_button.setEnabled(True)
+            # self.export_button.setEnabled(True)
+            # self.trim_button.setEnabled(True)
 
             self.volume_submit_button.setEnabled(True)
             self.tempo_submit_button.setEnabled(True)
@@ -275,6 +273,7 @@ class SoundPlayer(QMainWindow):
         self.paused_time = 0
         self.paused_position = 0
         self.sample_rate = wave.open(self.audio_file_path).getframerate()
+        self.channel_count = wave.open(self.audio_file_path).getnchannels()
 
     def toggle_play_sound(self):
         """
@@ -287,11 +286,8 @@ class SoundPlayer(QMainWindow):
 
     def play_sound(self):
         """
-        Play the loaded audio file, either from the beginning or resume from a pause.
+        Play the loaded audio file from the beginning
         """
-        if not self.audio_file_path:
-            show_message("Error", "Please choose an audio file before playing.")
-            return
 
         self.canvas.setVisible(True)
         if not self.is_playing:
@@ -307,9 +303,6 @@ class SoundPlayer(QMainWindow):
                 self.start_time = tm.time()
             self.is_playing = True
             self.paused = False
-
-
-
 
     def toggle(self):
         """
@@ -332,9 +325,6 @@ class SoundPlayer(QMainWindow):
         """
         Stop the audio playback and reset playback variables.
         """
-        if not self.audio_file_path:
-            show_message("Error", "Please choose an audio file before stopping.")
-            return
 
         print("Stopping playback")
         pygame.mixer.stop()
@@ -369,9 +359,6 @@ class SoundPlayer(QMainWindow):
         """
         Play the loaded audio file in reverse.
         """
-        if not self.audio_file_path:
-            show_message("Error", "Please choose an audio file before playing in reverse.")
-            return
 
         self.canvas.setVisible(True)
         if not self.is_playing:
@@ -429,9 +416,6 @@ class SoundPlayer(QMainWindow):
         except ValueError:
             show_message("Error", "Please enter a valid number for the volume factor.")
             return
-        if not self.audio_file_path:
-            show_message("Error", "Please choose an audio file before changing loudness.")
-            return
 
         self.canvas.setVisible(True)
         if not self.is_playing:
@@ -464,9 +448,6 @@ class SoundPlayer(QMainWindow):
             tempo_factor = float(tempo_factor)
         except ValueError:
             show_message("Error", "Please enter a valid number for the speed factor.")
-            return
-        if not self.audio_file_path:
-            show_message("Error", "Please choose an audio file before playing in reverse.")
             return
 
         self.canvas.setVisible(True)
@@ -507,9 +488,6 @@ class SoundPlayer(QMainWindow):
         except ValueError:
             show_message("Error", "Please enter a valid number for the noise cutoff strength (from 0 to 1).")
             return
-        if not self.audio_file_path:
-            show_message("Error", "Please choose an audio file before playing in reverse.")
-            return
 
         self.canvas.setVisible(True)
         if not self.is_playing:
@@ -544,7 +522,7 @@ class SoundPlayer(QMainWindow):
 
     def add_echo_effect(self, delay, attenuation):
         """
-        Dodaj efekt echa do załadowanego pliku dźwiękowego.
+        Add an echo effect to the loaded audio file.
         """
         try:
             delay = float(delay)
@@ -553,28 +531,24 @@ class SoundPlayer(QMainWindow):
             show_message("Error", "Please enter valid numbers for delay and attenuation.")
             return
 
-        if not self.audio_file_path:
-            show_message("Error", "Please choose an audio file before applying the echo effect.")
-            return
-
         self.canvas.setVisible(True)
 
         if not self.is_playing:
             print("Adding echo effect")
             sound_data = pygame.sndarray.samples(self.sound)
 
-            # Oblicz długość echa w próbkach
-
+            # Calculate the length of the echo in samples
             echo_length = int(delay * self.sample_rate)
             print("Calculating echo length", delay, self.sample_rate)
-            # Inicjalizuj tablicę dla danych echa
+
+            # Initialize an array for the echo data
             echo_data = np.zeros_like(sound_data)
 
-            # Dodaj efekt echa do dźwięku
+            # Add the echo effect to the sound
             for i in range(echo_length, len(sound_data)):
                 echo_data[i] = sound_data[i] + attenuation * sound_data[i - echo_length]
 
-            # Kombinuj oryginalne i dane echa
+            # Combine the original and echo data
             combined_data = np.clip(sound_data + echo_data, -32768, 32767)
 
             combined_data_contiguous = np.ascontiguousarray(combined_data)
@@ -587,33 +561,30 @@ class SoundPlayer(QMainWindow):
             self.is_playing = True
             self.paused = False
 
-    def trim(self, start_time, end_time):
-        """
-        Trim the sound to the given start and end times.
-        """
-        if not self.audio_file_path:
-            show_message("Error", "Please choose an audio file before trimming.")
-            return
-
-        if not self.is_playing:
-            show_message("Error", "Please play the audio before trimming.")
-            return
-
-        self.canvas.setVisible(True)
-        if self.paused:
-            show_message("Error", "Please resume the audio before trimming.")
-            return
-
-        print("Trimming")
-        pygame.mixer.stop()
-        sound_data = pygame.sndarray.samples(self.sound)
-        start_index = int(start_time * 1000)
-        end_index = int(end_time * 1000)
-        sound_data = sound_data[start_index:end_index]
-        sound_data_contiguous = np.ascontiguousarray(sound_data)
-        self.sound = pygame.sndarray.make_sound(sound_data_contiguous)
-        self.sound.play()
-        self.start_time = tm.time()
+    # def trim(self, start_time, end_time):
+    #     """
+    #     Trim the sound to the given start and end times.
+    #     """
+    #
+    #     if not self.is_playing:
+    #         show_message("Error", "Please play the audio before trimming.")
+    #         return
+    #
+    #     self.canvas.setVisible(True)
+    #     if self.paused:
+    #         show_message("Error", "Please resume the audio before trimming.")
+    #         return
+    #
+    #     print("Trimming")
+    #     pygame.mixer.stop()
+    #     sound_data = pygame.sndarray.samples(self.sound)
+    #     start_index = int(start_time * 1000)
+    #     end_index = int(end_time * 1000)
+    #     sound_data = sound_data[start_index:end_index]
+    #     sound_data_contiguous = np.ascontiguousarray(sound_data)
+    #     self.sound = pygame.sndarray.make_sound(sound_data_contiguous)
+    #     self.sound.play()
+    #     self.start_time = tm.time()
 
 
 if __name__ == '__main__':
