@@ -116,7 +116,7 @@ class SoundPlayer(QMainWindow):
         """
         # Set the window title and size
         self.setWindowTitle("Sound Player")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 1200, 900)
 
         # Set the application icon
         icon = QIcon("corgi.png")
@@ -160,18 +160,18 @@ class SoundPlayer(QMainWindow):
         self.tempo_submit_button = QPushButton("Submit tempo factor and play with tempo changed")
         self.tempo_submit_button.clicked.connect(lambda: self.change_tempo(self.tempo_input.text()))
 
-        self.noise_label = QLabel("Noise Cutoff Frequency:")
+        self.noise_label = QLabel("Noise Cutoff Strength (from 0 to 1, 0.1 more hearable effect, 0.9 less hearable effect):")
         self.noise_input = QLineEdit()
-        self.noise_submit_button = QPushButton("Submit noise cutoff strength (from 0 to 1). and play with noise filter")
+        self.noise_submit_button = QPushButton("Submit noise cutoff strength. Play with noise filter")
         self.noise_submit_button.clicked.connect(lambda: self.noise_filter(self.noise_input.text()))
 
-        self.echo_delay_label = QLabel("Echo Delay:")
-        self.echo_delay_input = QLineEdit()
-        self.echo_attenuation_label = QLabel("Echo Attenuation:")
-        self.echo_attenuation_input = QLineEdit()
-        self.echo_submit_button = QPushButton("Submit echo delay and attenuation and play with echo effect")
-        self.echo_submit_button.clicked.connect(
-            lambda: self.add_echo_effect(self.echo_delay_input.text(), self.echo_attenuation_input.text()))
+        # self.echo_delay_label = QLabel("Echo Delay:")
+        # self.echo_delay_input = QLineEdit()
+        # self.echo_attenuation_label = QLabel("Echo Attenuation:")
+        # self.echo_attenuation_input = QLineEdit()
+        # self.echo_submit_button = QPushButton("Submit echo delay and attenuation and play with echo effect")
+        # self.echo_submit_button.clicked.connect(
+        #     lambda: self.add_echo_effect(self.echo_delay_input.text(), self.echo_attenuation_input.text()))
 
         # Add buttons to the layout
         layout = QVBoxLayout()
@@ -199,13 +199,13 @@ class SoundPlayer(QMainWindow):
         layout.addWidget(self.noise_input)
         layout.addWidget(self.noise_submit_button)
 
-        # Add echo label, input and echo submit button to the layout
-        layout.addWidget(self.echo_delay_label)
-        layout.addWidget(self.echo_delay_input)
-        layout.addWidget(self.echo_attenuation_label)
-        layout.addWidget(self.echo_attenuation_input)
-
-        layout.addWidget(self.echo_submit_button)
+        # # Add echo label, input and echo submit button to the layout
+        # layout.addWidget(self.echo_delay_label)
+        # layout.addWidget(self.echo_delay_input)
+        # layout.addWidget(self.echo_attenuation_label)
+        # layout.addWidget(self.echo_attenuation_input)
+        #
+        # layout.addWidget(self.echo_submit_button)
 
         central_widget = QWidget()
         central_widget.setLayout(layout)
@@ -233,7 +233,7 @@ class SoundPlayer(QMainWindow):
         self.volume_submit_button.setEnabled(False)
         self.tempo_submit_button.setEnabled(False)
         self.noise_submit_button.setEnabled(False)
-        self.echo_submit_button.setEnabled(False)
+        # self.echo_submit_button.setEnabled(False)
         # self.export_button.setEnabled(False)
         # self.trim_button.setEnabled(False)
 
@@ -252,7 +252,7 @@ class SoundPlayer(QMainWindow):
             self.toggle_button.setEnabled(True)
             self.stop_button.setEnabled(True)
             self.reverse_button.setEnabled(True)
-            self.echo_submit_button.setEnabled(True)
+            # self.echo_submit_button.setEnabled(True)
 
             # self.export_button.setEnabled(True)
             # self.trim_button.setEnabled(True)

@@ -28,8 +28,6 @@ To install pydub you will need to install ffmpeg. You can download it from the o
 * Apply volume adjustment
 * Apply tempo change
 * Apply noise filtering
-* Apply audio trimming
-* Save audio files
 * Display audio waveform
 
 ## Usage
@@ -40,15 +38,12 @@ To install pydub you will need to install ffmpeg. You can download it from the o
    * "Pause/Resume": Toggle between pausing and resuming playback.
    * "Stop": Stop audio playback.
    * "Play in Reverse": Play the audio file in reverse.
-   * "Export Changed Sound": Export the modified audio with effects to a WAV file.
-   * "Trim": Open a window to trim the audio by specifying start and end times.
    * "Submit volume factor and play with volume changed": Change the loudness (volume) of the audio.
    * "Submit tempo factor and play with tempo changed": Change the tempo (speed) of the audio.
    * "Submit noise cutoff strength (from 0 to 1) and play with noise filter": Apply a noise filter to the audio.
 4. The application provides a graphical representation of the audio waveform.
 5. You can monitor the current time of playback in the plot.
-6. Use the "Trim" window to specify start and end times to trim the audio.
-7. You can export the modified audio with effects using the "Export Changed Sound" button.
+
 
 ## Application Overview
 This application provides a user-friendly interface for playing and modifying audio files. It supports a variety of audio formats and allows you to apply several audio effects in real-time. The graphical representation of the audio waveform helps you visualize the audio playback.
