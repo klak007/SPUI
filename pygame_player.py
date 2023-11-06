@@ -8,6 +8,7 @@ import scipy.signal as signal
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QIcon
@@ -173,6 +174,16 @@ class SoundPlayer(QMainWindow):
         # self.echo_submit_button.clicked.connect(
         #     lambda: self.add_echo_effect(self.echo_delay_input.text(), self.echo_attenuation_input.text()))
 
+        self.fade_in_label = QLabel("Fade in time")
+        self.fade_in_input = QLineEdit()
+        self.fade_in_submit_button = (QPushButton("Submit fade in time"))
+        self.fade_in_submit_button.clicked.connect(lambda: self.fade_in(self.fade_in_input.text()))
+
+        self.fade_out_label = QLabel("Fade out time")
+        self.fade_out_input = QLineEdit()
+        self.fade_out_submit_button = (QPushButton("Submit fade out time"))
+        self.fade_out_submit_button.clicked.connect(lambda: self.fade_out(self.fade_out_input.text()))
+
         # Add buttons to the layout
         layout = QVBoxLayout()
         layout.addWidget(self.canvas)
@@ -207,6 +218,14 @@ class SoundPlayer(QMainWindow):
         #
         # layout.addWidget(self.echo_submit_button)
 
+        layout.addWidget(self.fade_in_label)
+        layout.addWidget(self.fade_in_input)
+        layout.addWidget(self.fade_in_submit_button)
+
+        layout.addWidget(self.fade_out_label)
+        layout.addWidget(self.fade_out_input)
+        layout.addWidget(self.fade_out_submit_button)
+
         central_widget = QWidget()
         central_widget.setLayout(layout)
         self.setCentralWidget(central_widget)
@@ -234,8 +253,12 @@ class SoundPlayer(QMainWindow):
         self.tempo_submit_button.setEnabled(False)
         self.noise_submit_button.setEnabled(False)
         # self.echo_submit_button.setEnabled(False)
+        self.fade_in_submit_button.setEnabled(False)
+        self.fade_out_submit_button.setEnabled(False)
         # self.export_button.setEnabled(False)
         # self.trim_button.setEnabled(False)
+
+
 
     def open_audio_file(self):
         """
@@ -253,7 +276,8 @@ class SoundPlayer(QMainWindow):
             self.stop_button.setEnabled(True)
             self.reverse_button.setEnabled(True)
             # self.echo_submit_button.setEnabled(True)
-
+            self.fade_in_submit_button.setEnabled(True)
+            self.fade_out_submit_button.setEnabled(True)
             # self.export_button.setEnabled(True)
             # self.trim_button.setEnabled(True)
 
@@ -586,6 +610,133 @@ class SoundPlayer(QMainWindow):
     #     self.sound.play()
     #     self.start_time = tm.time()
 
+    def fade_in(self, duration_seconds):
+        """
+        Apply a fade-in effect to the loaded audio file.
+        """
+        try:
+            duration_seconds = float(duration_seconds)
+        except ValueError:
+            show_message("Error", "Please enter a valid number for the duration.")
+            return
+
+        # Check if the user-entered duration is longer than the audio duration
+        audio_duration = self.sound.get_length()
+
+        # Check if the user-entered duration is longer than the audio duration
+        if duration_seconds > audio_duration:
+            show_message("Error", "Fade-in duration exceeds audio duration.")
+            return
+
+        self.canvas.setVisible(True)
+        if not self.is_playing:
+
+            print("Starting playback with fade-in effect")
+            if self.paused:
+                print("Resuming playback with fade-in effect")
+                pygame.mixer.unpause()
+            else:
+                sound_data = pygame.sndarray.samples(self.sound)
+                total_samples = sound_data.shape[0]
+
+                # Calculate the number of samples for the fade-in effect using self.sample_rate
+                fade_in_samples = int(duration_seconds * self.sample_rate)
+                fade_in_samples = min(fade_in_samples, total_samples)
+
+                # Create a fade-in envelope
+                fade_in_envelope = np.linspace(0, 1, fade_in_samples)
+
+                # Reshape the fade-in envelope to match the shape of sound_data
+                fade_in_envelope = fade_in_envelope[:, np.newaxis]
+
+                # Reshape sound_data to match the shape of fade_in_envelope
+                sound_data = sound_data[:fade_in_samples]
+
+                # Apply the fade-in effect to the audio data
+                volumed_data = np.multiply(sound_data, fade_in_envelope)
+                volumed_data = volumed_data.astype(np.int16)
+
+                volumed_data_contiguous = np.ascontiguousarray(volumed_data)
+                volumed_sound = pygame.sndarray.make_sound(volumed_data_contiguous)
+                self.sound = volumed_sound
+                self.sound.play()
+                self.start_time = tm.time()
+
+            self.is_playing = True
+            self.paused = False
+
+    def fade_out(self, duration_seconds):
+        """
+        Apply a fade-out effect to the loaded audio file.
+        """
+        try:
+            duration_seconds = float(duration_seconds)
+        except ValueError:
+            show_message("Error", "Please enter a valid number for the duration.")
+            return
+
+        # Check if the user-entered duration is longer than the audio duration
+        audio_duration = self.sound.get_length()
+
+        # Check if the user-entered duration is longer than the audio duration
+        if duration_seconds > audio_duration:
+            show_message("Error", "Fade-out duration exceeds audio duration.")
+            return
+
+        self.canvas.setVisible(True)
+        if not self.is_playing:
+
+            print("Starting playback with fade-out effect")
+            if self.paused:
+                print("Resuming playback with fade-out effect")
+                pygame.mixer.unpause()
+            else:
+                sound_data = pygame.sndarray.samples(self.sound)
+                total_samples = sound_data.shape[0]
+
+                # Calculate the number of samples for the fade-out effect using self.sample_rate
+                fade_out_samples = int(duration_seconds * self.sample_rate)
+                fade_out_samples = min(fade_out_samples, total_samples)
+
+                # Create a fade-out envelope
+                fade_out_envelope = np.linspace(1, 0, fade_out_samples)
+
+                # Reshape the fade-out envelope to match the shape of sound_data
+                fade_out_envelope = fade_out_envelope[:, np.newaxis]
+
+                # Determine the starting point for the fade-out effect
+                start_index = total_samples - fade_out_samples
+
+                # Apply the fade-out effect to the audio data
+                volumed_data = sound_data.copy()
+                volumed_data[start_index:] = np.multiply(volumed_data[start_index:], fade_out_envelope)
+                volumed_data = volumed_data.astype(np.int16)
+
+                volumed_data_contiguous = np.ascontiguousarray(volumed_data)
+                volumed_sound = pygame.sndarray.make_sound(volumed_data_contiguous)
+                self.sound = volumed_sound
+                self.sound.play()
+                self.start_time = tm.time()
+
+            self.is_playing = True
+            self.paused = False
+
+    def plot_spectrogram(audio_data, sample_rate):
+        """
+        Generate and display a spectrogram of the audio data.
+        """
+        # Calculate the spectrogram using the scipy.signal.spectrogram function
+        f, t, Sxx = signal.spectrogram(audio_data, sample_rate)
+
+        # Plot the spectrogram
+        plt.figure(figsize=(10, 5))
+        plt.pcolormesh(t, f, 10 * np.log10(Sxx), shading='auto', cmap='viridis')
+        plt.title('Spectrogram')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Frequency (Hz)')
+        plt.colorbar(label='Power/Frequency (dB/Hz)')
+        plt.tight_layout()
+        plt.show()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
