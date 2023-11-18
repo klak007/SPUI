@@ -5,6 +5,7 @@ import numpy as np
 import wave
 import pygame
 import scipy.signal as signal
+from scipy.io.wavfile import write
 import librosa.display
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -12,9 +13,9 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
 from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QAction, \
-    QMessageBox, QLabel, QLineEdit, QGridLayout, QHBoxLayout
+    QMessageBox, QLabel, QLineEdit, QGridLayout, QHBoxLayout, QDialog
 
 
 def show_message(title, message):
@@ -98,7 +99,10 @@ class SoundPlayer(QMainWindow):
         self.toggle_button = QPushButton("Pause/Resume")
         self.stop_button = QPushButton("Stop")
         self.reverse_button = QPushButton("Play in Reverse")
-        self.plot_spectrogram_button = QPushButton("Show spectogram plot")
+        # self.plot_spectrogram_button = QPushButton("Create spectogram plot")
+        # self.show_spectrogram_button = QPushButton("Show spectogram plot")
+        self.plot_and_show_spectrogram_button = QPushButton("Create and show spectogram plot")
+        self.save_audio_file_button = QPushButton("Save audio file")
 
         # Create a label and input field for specifying loudness factor
         self.volume_label = QLabel("Loudness Factor:")
@@ -150,7 +154,6 @@ class SoundPlayer(QMainWindow):
         layout.addWidget(self.noise_input)
         layout.addWidget(self.noise_submit_button)
 
-
         layout.addWidget(self.fade_in_label)
         layout.addWidget(self.fade_in_input)
         layout.addWidget(self.fade_in_submit_button)
@@ -159,7 +162,8 @@ class SoundPlayer(QMainWindow):
         layout.addWidget(self.fade_out_input)
         layout.addWidget(self.fade_out_submit_button)
 
-        layout.addWidget(self.plot_spectrogram_button)
+        layout.addWidget(self.plot_and_show_spectrogram_button)
+        layout.addWidget(self.save_audio_file_button)
 
         central_widget = QWidget()
         central_widget.setLayout(layout)
@@ -170,7 +174,8 @@ class SoundPlayer(QMainWindow):
         self.toggle_button.clicked.connect(self.toggle_play_sound)
         self.stop_button.clicked.connect(self.stop_sound)
         self.reverse_button.clicked.connect(self.play_reverse_sound)
-        self.plot_spectrogram_button.clicked.connect(self.plot_spectrogram)
+        self.plot_and_show_spectrogram_button.clicked.connect(lambda: self.plot_and_show_spectrogram("spectrogram.png"))
+        self.save_audio_file_button.clicked.connect(lambda: self.save_audio_file("output.wav"))
 
         # Initialize a timer to update the plot
         self.timer = QTimer(self)
@@ -189,7 +194,8 @@ class SoundPlayer(QMainWindow):
 
         self.fade_in_submit_button.setEnabled(False)
         self.fade_out_submit_button.setEnabled(False)
-        self.plot_spectrogram_button.setEnabled(False)
+        self.plot_and_show_spectrogram_button.setEnabled(False)
+        self.save_audio_file_button.setEnabled(False)
 
     def open_audio_file(self):
         """
@@ -201,6 +207,7 @@ class SoundPlayer(QMainWindow):
 
         if file_name:
             self.audio_file_path = file_name
+            self.output_file_path = "output.wav"
             self.load_audio_file()
             self.play_button.setEnabled(True)
             self.toggle_button.setEnabled(True)
@@ -208,7 +215,8 @@ class SoundPlayer(QMainWindow):
             self.reverse_button.setEnabled(True)
             self.fade_in_submit_button.setEnabled(True)
             self.fade_out_submit_button.setEnabled(True)
-            self.plot_spectrogram_button.setEnabled(True)
+            self.plot_and_show_spectrogram_button.setEnabled(True)
+            self.save_audio_file_button.setEnabled(True)
 
             self.volume_submit_button.setEnabled(True)
             self.tempo_submit_button.setEnabled(True)
@@ -246,6 +254,9 @@ class SoundPlayer(QMainWindow):
         if not self.is_playing:
 
             print("Starting playback")
+
+            length_seconds = pygame.mixer.Sound(self.audio_file_path).get_length()
+
             if self.paused:
                 print("Resuming")
                 pygame.mixer.unpause()
@@ -333,7 +344,6 @@ class SoundPlayer(QMainWindow):
 
             self.is_playing = True
             self.paused = False
-
 
     def change_volume(self, volume_factor):
         """
@@ -448,48 +458,6 @@ class SoundPlayer(QMainWindow):
             self.is_playing = True
             self.paused = False
 
-    def add_echo_effect(self, delay, attenuation):
-        """
-        Add an echo effect to the loaded audio file.
-        """
-        try:
-            delay = float(delay)
-            attenuation = float(attenuation)
-        except ValueError:
-            show_message("Error", "Please enter valid numbers for delay and attenuation.")
-            return
-
-        self.canvas.setVisible(True)
-
-        if not self.is_playing:
-            print("Adding echo effect")
-            sound_data = pygame.sndarray.samples(self.sound)
-
-            # Calculate the length of the echo in samples
-            echo_length = int(delay * self.sample_rate)
-            print("Calculating echo length", delay, self.sample_rate)
-
-            # Initialize an array for the echo data
-            echo_data = np.zeros_like(sound_data)
-
-            # Add the echo effect to the sound
-            for i in range(echo_length, len(sound_data)):
-                echo_data[i] = sound_data[i] + attenuation * sound_data[i - echo_length]
-
-            # Combine the original and echo data
-            combined_data = np.clip(sound_data + echo_data, -32768, 32767)
-
-            combined_data_contiguous = np.ascontiguousarray(combined_data)
-            combined_sound = pygame.sndarray.make_sound(combined_data_contiguous)
-
-            self.sound = combined_sound
-            self.sound.play()
-            self.start_time = tm.time()
-
-            self.is_playing = True
-            self.paused = False
-
-
     def fade_in(self, duration_seconds):
         """
         Apply a fade-in effect to the loaded audio file without shortening the original audio.
@@ -590,19 +558,57 @@ class SoundPlayer(QMainWindow):
             self.is_playing = True
             self.paused = False
 
-    def plot_spectrogram(self):
+    def plot_and_show_spectrogram(self, save_path="spectrogram.png"):
+        """
+        Plot and show the spectrogram of the loaded audio file.
+        """
         # Load audio data
-        y, sr = librosa.load(self.audio_file_path, sr=None)
+        y, sr = librosa.load(self.output_file_path, sr=self.sample_rate)
 
         # Compute the spectrogram
-        d = librosa.amplitude_to_db(np.abs(librosa.stft(y)), ref=np.max)
+        D = librosa.amplitude_to_db(np.abs(librosa.stft(y)), ref=np.max)
+
+        # Get the time axis
+        times = librosa.times_like(D)
 
         # Plot the spectrogram
         plt.figure(figsize=(12, 6))
-        librosa.display.specshow(d, sr=sr, x_axis='time', y_axis='log')
+        librosa.display.specshow(D, sr=sr, x_coords=times, x_axis='time', y_axis='log')
         plt.colorbar(format='%+2.0f dB')
         plt.title('Spectrogram')
-        plt.show()
+
+        # Save the spectrogram image
+        plt.savefig(save_path)
+        plt.close()
+
+        # Create a new window (QDialog)
+        spectrogram_window = QDialog(self)
+        spectrogram_window.setWindowTitle('Spectrogram Window')
+
+        # Load the saved spectrogram image
+        pixmap = QPixmap(save_path)
+
+        # Create a QLabel and set the pixmap
+        label = QLabel(spectrogram_window)
+        label.setPixmap(pixmap)
+
+        # Set up layout
+        layout = QVBoxLayout(spectrogram_window)
+        layout.addWidget(label)
+
+        spectrogram_window.exec_()
+
+    def save_audio_file(self, output_file_path):
+        """
+        Save the loaded audio file to a WAV file.
+        """
+        # Get the raw sound data from the pygame.mixer.Sound object
+        sound_array = pygame.sndarray.array(self.sound)
+        sound_array = sound_array[::2]
+
+        # Save the sound data to a WAV file using scipy
+        write(output_file_path, self.sample_rate, sound_array)
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
